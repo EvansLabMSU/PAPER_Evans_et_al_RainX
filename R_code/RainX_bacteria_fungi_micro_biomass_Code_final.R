@@ -6,83 +6,64 @@
 library("phyloseq")
 library("ggplot2")
 library(gridExtra)
-library(plyr)
-library(cowplot)
-library(gdata)
+library(plyr); library(dplyr)
 library(car)
 library(MASS)
 library(emmeans)
 library(reshape2)
 library(vegan)
-library(ggrepel)
-library(cowplot)
+library(ape)
+library(usedist)
+library(gdata)
+library(RVAideMemoire) # for tests after PERMANOVA
+#library(cowplot)
 options(contrasts=c("contr.sum", "contr.poly"))
-
+"%w/o%" <- function(x,y)!('%in%'(x,y))
 
 
 #####Begin Bacterial Pre-analyses filtering######
 
 setwd("D:/RainX/github/PAPER_Evans_et_al_RainX-master/R_input_files/Bacteria")
-combin_16S<-read.table("16S_combined_merged_RainX_NambPW_OTU_table.txt", header=T,row.names = 1)
-bact.OTU = otu_table(combin_16S, taxa_are_rows = TRUE)
+Rainx_16S<-read.table("16S_RainX_OTU_table.txt", header=T,row.names = 1)
+bact.OTU = otu_table(Rainx_16S, taxa_are_rows = TRUE)
 sum(otu_table(bact.OTU))
-#11086630
-bact.map2=import_qiime_sample_data("16s_map_namibia_rainx.txt")
-bact.map2$com.rain.time=with(bact.map2, interaction(RainCom, RainLevel,SampleTime))
-bact.taxa=as.matrix(read.table("16S_combined_merged_RainX_NambPW_sintax_80c_simple.txt", header=T))
+#6595777
+bact.map=read.table("16s_map_rainx.txt", header=T,row.names = 1)
+
+bact.taxa=as.matrix(read.table("16S_RainX_80c_simple.txt", header=T))
 bact.TAX = tax_table(bact.taxa)
-bact_tree=read_tree("OTU_comb_rain_fog_16s_nwk")
+bact_tree=read_tree("bact.rainx_tree.nwk")
 bact.data=phyloseq(bact.OTU, bact.TAX, sample_data(bact.map2),phy_tree(bact_tree))
-sample_sums(bact.data)
-blankRL=subset_samples(bact.data, PS=="PS"|PW=="PW")
-sample_sums(blankRL)
 
-
-#bact.data2=phyloseq(otu_table(combin_16S), tax_table(combin_16S), sample_data(bact.map2),phy_tree(bact_tree))
 ntaxa(bact.data)
-#30208
+#19378
 
 sum(otu_table(bact.data))
-#11086630
-
-colnames(tax_table(bact.data))=c("Domain","Phylum","Class","Order","Family","Genus","Species")
+#6595777
 
 
-
-
+#remove Chloroplast Reads
 
 bact.data<-subset_taxa(bact.data,Class!="c:Chloroplast")
 ntaxa(bact.data)
-#30033
+#19227
 
 sum(otu_table(bact.data))
-#10399303
+#6526343
 
-
+#remove Mitochondria Reads
 bact.data<-subset_taxa(bact.data,Family!="f:Mitochondria")
 ntaxa(bact.data)
-#29853
+#19076
 
 sum(otu_table(bact.data))
-#10211947
+#6471278
 
 
 
 
-#Samples have more than 2 reads across the experiment
-
+#Filter taxe with lees than 3 reads in RainX
 bact.rainx<-subset_samples(bact.data, ProjectName=="RainX")
-ntaxa(bact.rainx)
-#29853
-
-
-sum(otu_table(bact.rainx))
-#6456457
-
-
-
-
-
 
 bact.rainx3<-prune_taxa(taxa_sums(bact.rainx) > 2, bact.rainx)
 ntaxa(bact.rainx3)
@@ -108,9 +89,10 @@ ntaxa(bact.soil)
 sum(otu_table(bact.soil))
 #5247626
 bact.soil.tree=bact.soil
+
+#root the tree with a random node
 phy_tree(bact.soil.tree)<-ape::root(phy_tree(bact.soil.tree), "OTU617", resolve.root=TRUE)
-#save(bact.soil.tree, file = "bact.soil.with_tree.RData")
-#load("bact.soil.with_tree.RData")
+
 
 
 
@@ -126,13 +108,13 @@ numsamplesblankPW <- apply(PWblank, 1, sum)
 head(numsamplesblankPW)
 datafilPW<- prune_taxa(numsamplesblankPW==0, bact.data)
 ntaxa(datafilPW)
-#29662
-#29853-29662=191
+# 18885
+#19076- 18885=191
 
 
 sum(otu_table(datafilPW))
-#9003926
-#10211947-9003926=1208021
+#5928142
+#6471278-5928142=543136
 
 
 bact.rainxPW<-subset_samples(datafilPW, ProjectName=="RainX")
@@ -173,56 +155,31 @@ sum(otu_table(bact.rain))
 #1205396-852909=352487 #Number of Reads removed with PW filtering
 
 bact.rain.tree=phyloseq(otu_table(bact.rain), tax_table(bact.rain), sample_data(bact.map2),phy_tree(bact_tree)) 
-#save(bact.rain.tree, file = "bact.rain.with_tree_filtered.RData")
-#load("bact.rain.with_tree_filtered.RData")
 
-
-#save(bact.data, file = "bact.data.RData")
-#load("bact.data.RData")
-#bact_tree=read_tree("OTU_comb_rain_fog_16s_nwk")
-
-#save(bact.soil.tree, file = "bact.soil.with_tree.RData")
-#load("bact.soil.with_tree.RData")
-
-
-#save(bact.rain.tree, file = "bact.rain.with_tree_filtered.RData")
-#load("bact.rain.with_tree_filtered.RData")
 
 #####END Bacterial Pre-analyses filtering######
 
 #####Begin Fungal Pre-analyses filtering######
 
 setwd("D:/RainX/github/PAPER_Evans_et_al_RainX-master/R_input_files/Fungi")
-fung.tax=as.matrix(read.table("ITS_combined_merged_RainX_NambPW_taxa_80c_simp.txt",header=T))
-fung.otu=read.table("combined_merged_RainX_NambPW_OTU_table.txt",header=T,row.names = 1)
+fung.tax=as.matrix(read.table("ITS_RainX_80c_simple.txt",header=T))
+fung.otu=read.table("ITS_RainX_OTU_table.txt",header=T,row.names = 1)
 
 fung.OTU = otu_table(fung.otu, taxa_are_rows = TRUE)
 ntaxa(fung.OTU)
-#7582
+#4241
 
 fung.TAX = tax_table(fung.tax)
 #Read into phyloseq
 fung.data=phyloseq(fung.OTU,fung.TAX)
-fung.map=import_qiime_sample_data("ITS_its_map_namibia_rainx.txt")
-fung.map$com.rain.time=with(fung.map, interaction(RainCom, RainLevel,SampleTime))
-fung.map$com.rain.soil.time=with(fung.map, interaction(RainCom, RainLevel,SoilType,SampleTime))
-
-fung.data=phyloseq(fung.OTU,fung.TAX, sample_data(fung.map),fung.tree)
+fung.map=read.table("ITS_map_rainx.txt",header=T,row.names = 1)
+fung.map$com.rain=with(fung.map, interaction(RainCom, RainLevel))
+fung.data=phyloseq(fung.OTU,fung.TAX, sample_data(fung.map))
 ntaxa(fung.data)
-#7582
+#4241
 
 sum(otu_table(fung.data))
-#10427657
-
-
-colnames(tax_table(fung.data))=c("Domain","Phylum","Class","Order","Family","Genus","Species")
-
-fung.data=subset_taxa(fung.data, Domain=="d:Fungi")
-ntaxa(fung.data)
-#7137
-
-sum(otu_table(fung.data))
-#10322898
+#2924860
 
 
 
@@ -278,19 +235,19 @@ F.numsamplesblankPW <- apply(F.PWblank, 1, sum)
 head(F.numsamplesblankPW)
 F.datafilPW<- prune_taxa(F.numsamplesblankPW==0, fung.data)
 ntaxa(F.datafilPW)
-#7098
-#7137-7098=39
+#4202
+#4241-4202=39
 
 
 sum(otu_table(F.datafilPW))
-#6959376
-#10322898-6959376=3363522
+#2643797
+#2924860-2643797=281063
 
 
 fung.rainxPW<-subset_samples(F.datafilPW, ProjectName=="RainX")
 
 ntaxa(fung.rainxPW)
-#7098
+#4202
 
 
 sum(otu_table(fung.rainxPW))
@@ -325,26 +282,10 @@ sum(otu_table(fung.rain))
 #752459-524165=228294 #Number of Reads removed with PW filtering
 
 
-#save(fung.rain, file = "fung.rain_filtered.RData")
-#load("fung.rain_filtered.RData")
-
-
-#save(fung.soil, file = "fung.soil.RData")
-#load("fung.soil.RData")
-#save(fung.rain, file = "fung.rain_filtered.RData")
-#load("fung.rain_filtered.RData")
 
 #####END Fungal Pre-analyses filtering######
 
-#Fungi share with rain
 
-
-
-
-
-#Clay and Rain 
-bact.soil.end=subset_samples(bact.soil.tree, SampleTime=="End")
-bact.clay.end=subset_samples(bact.soil.end, SoilType=="Clay")
 
 
 
@@ -368,20 +309,20 @@ Zdata<-Zdata[1:82,]
 ZdataOther<-Zdata[65:82,]
 Zdatatrt<-Zdata[1:64,]
 
-ZSandtrt<-Zdatatrt[Zdatatrt$Soil=="sand",]
+
 ZClaytrt<-Zdatatrt[Zdatatrt$Soil=="clay",]
 
 #Takeing out T0s - getting mean for a T0 line on boxplot
 t0<-Zdata[Zdata$Trt=="t0",]
 t0clay<-t0[t0$Soil=="clay",]
-t0sand<-t0[t0$Soil=="sand",]
+
 meant0clay<-mean(t0clay$MB.POC.ug_g_dry)
-meant0sand<-mean(t0sand$MB.POC.ug_g_dry ) #Get lines for boxplots
-#sdt0clay<-sd(t0clay$MB.POC.ug_g_dry) #Could do stdev if you want, and put ribbon shading it
+
+
 
 #Clay
 ZClaytrt<-drop.levels(ZClaytrt)
-ZSandtrt<-drop.levels(ZSandtrt)
+
 
 levels(ZClaytrt$Disp.Trt)
 head(ZClaytrt)
@@ -416,7 +357,7 @@ qqPlot(studres(micro_bio.clayE))
 hist(studres(micro_bio.clayE))
 shapiro.test(studres(micro_bio.clayE))
 #p-value = 0.8759
-boxCox(micro_bio.clayE)
+
 #looks okay....
 Anova(micro_bio.clayE,type = 3)
 #Rain.Trt            52.75  1   5.3622  0.028414 *  
@@ -434,15 +375,6 @@ lsmeans(micro_bio.clayE, pairwise~Rain.Trt * Disp.Trt)
 #ambient,sterile  - reduced,sterile      3.557978 1.623304 27   2.192  0.1511
 
 
-boxplot<-boxplot(MB.POC.ug_g_dry ~ Rain.Trt * Disp.Trt, col=c("lightgrey","lightgrey","white","white"),border=c("black", "darkgrey", "black", "darkgrey"),
-                 na.rm=TRUE, ylab="Microbial biomass carbon (ug/g soil)",ylim=c(0,220),
-                 data=ZClaytrt,
-                 main="biomass_clay_neg as zeroes")
-abline(h=meant0clay, col="black")
-#Stats
-fit <- aov(MB.POC.ug_g_dry  ~ Rain.Trt *Disp.Trt, data=ZClaytrt)
-summary(fit)
-TukeyHSD(fit)
 
 #Fig 1b metabolic diversity
 #Load in file
@@ -465,11 +397,10 @@ pMap<-DataMultivar[,1:5]
 DataOnly<-DataMultivar[,6:37]
 DataOnly<-cbind(pMap[,1],DataOnly)
 
-######## Diversity, used in final paper!! Also have richness, biomass, evenness ############
-Diversity<-diversity(DataOnly,index="shannon",MARGIN=1)
-#########
 
-########
+Diversity<-diversity(DataOnly,index="shannon",MARGIN=1)
+
+
 pMap$Soil
 Div<-cbind(pMap,Diversity)
 DiversityClay<-Div[Div$Soil=="clay",]
@@ -480,7 +411,7 @@ DiversityClay<-drop.levels(DiversityClay)
 
 T0<-Div[Div$Disp.Trt=="t0",]
 T0Clay<-T0[T0$Soil=="clay",]
-#T0Sanddiv<-T0[T0$Soil=="sand",]
+
 
 DiversityClay$com.rain.time=with(DiversityClay, interaction(Rain.Trt, Disp.Trt))
 levels(DiversityClay$com.rain.time)
@@ -535,38 +466,37 @@ lsmeans(biolog.clayE, pairwise~Rain.Trt * Disp.Trt)
 
 
 #####Bacterial Diversities#####
-alpha_meas = c("Observed", "Chao1", "Shannon", "InvSimpson")
 
-(p0fil <- plot_richness(bact.clay.tree.end, "RainLevel", "RainCom", measures=alpha_meas))
+#subset to only clay and end samples
+bact.soil.end=subset_samples(bact.soil.tree, SampleTime=="End")
+bact.clay.end=subset_samples(bact.soil.end, SoilType=="Clay")
+
+alpha_meas = c("Observed", "Chao1", "Shannon")
+
+
 
 
 scaleFUN3 <- function(x) sprintf("%.3f", x)
-p0fil+geom_boxplot(data=p0fil$data, aes(x=RainLevel, 
-                                        y=value, 
-                                        color=NULL), alpha=0.1)+geom_jitter(width = 0.2)
-bact.clay.end.map=sample_data(bact.clay.tree.end)
-bact.clayE.t.divfil=estimate_richness(bact.clay.tree.end,measures=alpha_meas)
+
+bact.clay.end.map=sample_data(bact.clay.end)
+bact.clayE.t.divfil=estimate_richness(bact.clay.end,measures=alpha_meas)
 
 bact.clayE.t.divfil=merge(bact.clayE.t.divfil, bact.clay.end.map, by ="row.names")
 bact.clayE.t.divfil=mutate(bact.clayE.t.divfil, pielou=Shannon*(1/log(Observed)))
 
 
-
+#subset so intial community is included in diversity metric
 bact.clay.tree=subset_samples(bact.soil.tree, SoilType=="Clay")
 bact.clayES.tree=subset_samples(bact.clay.tree, SampleTime!="Stl")
 bact.clayES.tree<-prune_taxa(taxa_sums(bact.clayES.tree)>0,bact.clayES.tree)
 
 #starting diversity included
 #Diversities
-alpha_meas = c("Observed", "Chao1", "Shannon", "InvSimpson")
+alpha_meas = c("Observed", "Chao1", "Shannon")
 
-(p0fil <- plot_richness(bact.clayES.tree, "RainLevel", "RainCom", measures=alpha_meas))
+
 
 bact.clayES.t.map=sample_data(bact.clayES.tree)
-
-p0fil+geom_boxplot(data=p0fil$data, aes(x=RainLevel, 
-                                        y=value, 
-                                        color=NULL), alpha=0.1)+geom_jitter(width = 0.2)
 bact.clayES.t.divfil=estimate_richness(bact.clayES.tree,measures=alpha_meas)
 
 bact.clayES.t.divfil=merge(bact.clayES.t.divfil, bact.clayES.t.map, by ="row.names")
@@ -580,7 +510,11 @@ b_meant0clay_piel<-mean(bClay_t0$pielou)
 
 #Fungi
 
+#subset to only clay and end samples
+fung.soil.end=subset_samples(fung.soil, SampleTime=="End")
+fung.clay.end=subset_samples(fung.soil.end, SoilType=="Clay")
 
+alpha_meas = c("Observed", "Chao1", "Shannon")
 fung.clay.end.map=sample_data(fung.clay.end)
 fung.clayE.divfil=estimate_richness(fung.clay.end,measures=alpha_meas)
 
@@ -592,17 +526,12 @@ fung.clayE.divfil=mutate(fung.clayE.divfil, pielou=Shannon*(1/log(Observed)))
 fung.clay=subset_samples(fung.soil, SoilType=="Clay")
 fung.clayES=subset_samples(fung.clay, SampleTime!="STL")
 fung.clayES<-prune_taxa(taxa_sums(fung.clayES)>0,fung.clayES)
-
-#Diversities
-alpha_meas = c("Observed", "Chao1", "Shannon", "InvSimpson")
-
-(p0fil <- plot_richness(fung.clayES, "RainLevel", "RainCom", measures=alpha_meas))
-
 fung.clayES.map=sample_data(fung.clayES)
+#Diversities
+alpha_meas = c("Observed", "Chao1", "Shannon")
 
-p0fil+geom_boxplot(data=p0fil$data, aes(x=RainLevel, 
-                                        y=value, 
-                                        color=NULL), alpha=0.1)+geom_jitter(width = 0.2)
+
+
 fung.clayES.divfil=estimate_richness(fung.clayES,measures=alpha_meas)
 
 fung.clayES.divfil=merge(fung.clayES.divfil, fung.clayES.map, by ="row.names")
@@ -800,7 +729,7 @@ lsmeans(fung.clayE.piel, pairwise~RainLevel*RainCom)
 
 plot_grid(bact.clayE_p_MB, bact.clayE_p_bio,bact.clayE_p1,fung.clayE_p1,bact.clayE_p2,fung.clayE_p2, 
           ncol = 2,align = "v", rel_heights = c(1,1,1.1))
-#hjust = 0,vjust = 1
+
 
 #####END Fig 1 Diversity Graphs and Analyses#####
 
@@ -808,16 +737,39 @@ plot_grid(bact.clayE_p_MB, bact.clayE_p_bio,bact.clayE_p1,fung.clayE_p1,bact.cla
 #Taxon distribution
 
 #Bacteria
+#subset to only clay and end samples
+bact.soil.end=subset_samples(bact.soil.tree, SampleTime=="End")
+bact.clay.end=subset_samples(bact.soil.end, SoilType=="Clay")
+bact.clay.end<-prune_taxa(taxa_sums(bact.clay.end)>0,bact.clay.end)
+
+#extract OTU tables
+bact.clay.end_NO_TREE=otu_table(bact.clay.end)
+bact.rain_NO_TREE=otu_table(bact.rain.tree)
+#combine files to make one phyloseq file with both rain and soil samples
+bact.clay_rain.end=merge_phyloseq(bact.clay.end_NO_TREE,bact.rain_NO_TREE)
+bact.clay_rain.end<-prune_taxa(taxa_sums(bact.clay_rain.end)>0,bact.clay_rain.end)
+ntaxa(bact.clay_rain.end)
+#14369
+
+#make a new grouping variable with soil status and rain vs soil
+bact.data_map=sample_data(bact.data)
+bact.data_map$com.rain=with(bact.data_map, interaction(RainCom, RainLevel))
+
+#Make a new Phyloseq obj with all of the associated data
+bact.clay_rain.tree.end=phyloseq(otu_table(bact.clay_rain.end),tax_table(bact.data),bact.data_map,phy_tree(bact.data))
+
+#merge OTUs by the soil and precipitation treatment
 bact.clay_rain.tree.end_fact=merge_samples(bact.clay_rain.tree.end, "com.rain")
 sample_names(bact.clay_rain.tree.end_fact)     
 
+#combine the reads at Phylum level
 get_taxa_unique(bact.clay_rain.tree.end, taxonomic.rank="Phylum")
-#46
+#45
 (bact.clay_rain.tree.end_fact.phylum<-tax_glom(bact.clay_rain.tree.end_fact, taxrank="Phylum"))
 
 
 
-
+#subset so there is only the top ten most abundant phyla
 TopPHYL = names(sort(taxa_sums(bact.clay_rain.tree.end_fact.phylum), TRUE)[1:10])
 bact.clayT10 = prune_taxa(TopPHYL, bact.clay_rain.tree.end_fact.phylum)
 
@@ -825,15 +777,16 @@ Phyl_name_T10=get_taxa_unique(bact.clayT10, taxonomic.rank="Phylum")
 PHyl_Name_T10 <- colsplit(Phyl_name_T10, ":", c("letter", "Phyl_name"))
 
 
-
+#transform the read counts to prop of total reads
 
 bact.clay_rain.tree.end_fact.phylum.prop=transform_sample_counts(bact.clay_rain.tree.end_fact.phylum, function(x)x/sum(x))
 
 taxon_positions=c("Rain.Rain","NonSterile.Ambient","NonSterile.Reduced","Sterile.Ambient","Sterile.Reduced")
-
+bact.clayT10.prop = prune_taxa(TopPHYL, bact.clay_rain.tree.end_fact.phylum.prop)
 
 bact.clayT10.prop_otu=as.data.frame(t(otu_table(bact.clayT10.prop)))
 
+#create an other taxa category
 taxon_sums=c(sum(bact.clayT10.prop_otu$NonSterile.Ambient),sum(bact.clayT10.prop_otu$Sterile.Ambient),
              sum(bact.clayT10.prop_otu$Rain.Rain),sum(bact.clayT10.prop_otu$NonSterile.Reduced),
              sum(bact.clayT10.prop_otu$Sterile.Reduced))
@@ -863,7 +816,15 @@ summary(bact.clayT10.prop_OTU_M)
 
 #######fungi####
 
-#Taxon distribution
+
+
+#merge the clay and rain phyloseq obj 
+fung.soil.end=subset_samples(fung.soil, SampleTime=="End")
+fung.clay.end=subset_samples(fung.soil.end, SoilType=="Clay")
+fung.clay_rain.end=merge_phyloseq(fung.clay.end,fung.rain)
+
+
+#Group by soil status and rain versus soil
 
 fung.clay_rain.end_fact=merge_samples(fung.clay_rain.end, "com.rain")
 sample_names(fung.clay_rain.end_fact)     
@@ -873,8 +834,11 @@ get_taxa_unique(fung.clay_rain.end, taxonomic.rank="Phylum")
 (fung.clay_rain.end_fact.phylum<-tax_glom(fung.clay_rain.end_fact, taxrank="Phylum"))
 sort(taxa_sums(fung.clay_rain.end_fact.phylum))
 
+
+#Sum read numbers by Phylum
 get_taxa_unique(fung.clay_rain.end_fact.phylum, taxonomic.rank="Phylum")
 
+#Take the top 10 phyla
 TopPHYL = names(sort(taxa_sums(fung.clay_rain.end_fact.phylum), TRUE)[1:10])
 fung.clayT10 = prune_taxa(TopPHYL, fung.clay_rain.end_fact.phylum)
 
@@ -882,7 +846,7 @@ fung.clayT10 = prune_taxa(TopPHYL, fung.clay_rain.end_fact.phylum)
 
 
 
-
+#convert read numbers to prop of total reads
 fung.clay_rain.end_fact.phylum.prop=transform_sample_counts(fung.clayT10, function(x)x/sum(x))
 sort(get_taxa_unique(fung.clay_rain.end_fact.phylum.prop, taxonomic.rank="Phylum"))
 Fphyl_order=c("p:Ascomycota","p:Basidiomycota","p:Chytridiomycota",
@@ -938,24 +902,21 @@ bact.clay_rain.ES=merge_phyloseq(bact.clayES_NO_TREE,bact.rain_NO_TREE)
 
 ntaxa(bact.clay_rain.ES)
 #15026
-
+phy_tree(bact.data)<-ape::root(phy_tree(bact.data), "OTU617", resolve.root=TRUE)
 bact.clay_rain.ES=phyloseq(otu_table(bact.clay_rain.ES),tax_table(bact.data),sample_data(bact.data),phy_tree(bact.data))
 
 #ordinate
 bact.clay_rain.ES.ord <- ordinate(bact.clay_rain.ES, method="NMDS",distance = "wunifrac")
-#*** Solution reached
-#Warning message:
-#  In UniFrac(physeq, weighted = TRUE, ...) :
-#  Randomly assigning root as -- OTU7871 -- in the phylogenetic tree in the data you provided.
-#0.110471
-#save(bact.clay_rain.ES.ord, file = "bact.clay_rain.ES.ord.RData")
-#load("bact.clay_rain.ES.ord.RData")
+#*** No convergence -- monoMDS stopping criteria:
+#20: stress ratio > sratmax
+#0.1125909
+
 
 
 
 (fig1_P1_t0=plot_ordination(bact.clay_rain.ES, bact.clay_rain.ES.ord, shape = "SampleType")+
     geom_point(aes(shape = SampleType), size=4, fill="gray",color="black")+scale_shape_manual(values=c(3,21), name=NULL)+
-    geom_text(aes(label=SampleTimeTrunc),hjust=.5, vjust=1.5)+scale_y_continuous(labels=scaleFUN2, limits = c(-0.17,0.105))+
+    geom_text(aes(label=SampleTimeTrunc),hjust=.5, vjust=1.5)+scale_y_continuous(labels=scaleFUN2)+
     theme_bw()+theme(axis.text=element_text(size=10), legend.position ="none", 
                      axis.title.y=element_text(size=12),axis.title.x=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank())+
     ggtitle(label = "Bacteria")+theme(plot.title = element_text(hjust = 0.5, size=24)))
@@ -963,14 +924,8 @@ bact.clay_rain.ES.ord <- ordinate(bact.clay_rain.ES, method="NMDS",distance = "w
 
 #ordinate
 bact.clayES.tree.ord <- ordinate(bact.clayES.tree, method="NMDS",distance = "wunifrac")
-#*** No convergence -- monoMDS stopping criteria:
-#20: stress ratio > sratmax
-#Warning message:
-#  In UniFrac(physeq, weighted = TRUE, ...) :
-#  Randomly assigning root as -- OTU25422 -- in the phylogenetic tree in the data you provided.
-#0.07038433
-#save(bact.clayES.tree.ord, file = "bact.clayES.tree.ord_filtered.RData")
-#load("bact.clayES.tree.ord_filtered.RData")
+#*** Solution reached
+#0.07064679
 positions_t0 <- c("NonSterile.Ambient.Start", "NonSterile.Ambient.End", "NonSterile.Reduced.End", 
                   "Sterile.Ambient.End", "Sterile.Reduced.End")
 (fig1_P2_t0=plot_ordination(bact.clayES.tree, bact.clayES.tree.ord)+
@@ -990,6 +945,19 @@ positions_t0 <- c("NonSterile.Ambient.Start", "NonSterile.Ambient.End", "NonSter
                      axis.title=element_text(size=12),panel.grid.major=element_blank(),panel.grid.minor=element_blank()))
 
 
+#Results for table 1
+
+#Stats examining the effect of drought and dispersal on community composition
+
+bact.clay.end.UF.dis=distance(bact.clay.end,method="wunifrac", type = "samples")
+bact.clay.end.map=sample_data(bact.clay.end)
+
+adonis(bact.clay.end.UF.dis~bact.clay.end.map$RainLevel*bact.clay.end.map$RainCom, perm=9999)
+#bact.clay.end.map$RainLevel                            1  0.020800 0.0207998 22.9571 0.35999 0.0001 ***
+#bact.clay.end.map$RainCom                              1  0.007354 0.0073538  8.1165 0.12728 0.0002 ***
+#bact.clay.end.map$RainLevel:bact.clay.end.map$RainCom  1  0.004256 0.0042562  4.6976 0.07366 0.0024 ** 
+
+
 
 #Fungal Dataset
 #clay end and T0 only
@@ -1001,13 +969,9 @@ fung.clay_rain.ES=merge_phyloseq(fung.clayES, fung.rain)
 
 #ordinate
 fung.clay_rain.ES.ord <- ordinate(fung.clay_rain.ES, method="NMDS",distance = "bray")
-#*** No convergence -- monoMDS stopping criteria:
-#18: stress ratio > sratmax
-#2: scale factor of the gradient < sfgrmin
+#*** Solution reached
+#0.08376851
 
-#0.08376859
-#save(fung.clay_rain.ES.ord, file = "fung.clay_rain.ES_filtered.RData")
-#load("fung.clay_rain.ES_filtered.RData")
 scaleFUN1 <- function(x) sprintf("%.1f", x)
 (fig1_P3_t0=plot_ordination(fung.clay_rain.ES, fung.clay_rain.ES.ord, shape = "SampleType")+
     geom_point(aes(shape = SampleType), size=4, fill="gray",color="black")+scale_shape_manual(values=c(21,3), name=NULL,
@@ -1023,7 +987,7 @@ scaleFUN1 <- function(x) sprintf("%.1f", x)
 fung.clayES.ord <- ordinate(fung.clayES, method="NMDS",distance = "bray")
 #*** No convergence -- monoMDS stopping criteria:
 #20: stress ratio > sratmax
-#0.2524989
+#0.2530532
 #save(fung.clayES.ord, file = "fung.clayES.ord_PW.RData")
 #load("fung.clayES.ord_PW.RData")
 positions_t0 <- c("NonSterile.Ambient.Start", "NonSterile.Ambient.End", "NonSterile.Reduced.End", 
@@ -1044,6 +1008,18 @@ positions_t0 <- c("NonSterile.Ambient.Start", "NonSterile.Ambient.End", "NonSter
     theme_bw()+theme(axis.text=element_text(size=10),legend.text = element_text(size = 14),
                      axis.title.x=element_text(size=12),axis.title.y=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank()))
 
+#Results for table 1
+
+#Stats examining the effect of drought and dispersal on community composition
+fung.clay.end.dis=distance(fung.clay.end,method="bray", type = "samples")
+fung.clay.end.map=sample_data(fung.clay.end)
+
+adonis(fung.clay.end.dis~fung.clay.end.map$RainLevel*fung.clay.end.map$RainCom, perm=9999)
+#fung.clay.end.map$RainLevel                            1    0.2921 0.29208 1.61311 0.05082 0.0093 **
+#fung.clay.end.map$RainCom                              1    0.2332 0.23320 1.28795 0.04058 0.0838 . 
+
+
+#combine the graphs into a panel
 grid.arrange(fig1_P1_t0,fig1_P3_t0,fig1_P2_t0, fig1_P4_t0, nrow=2,ncol=2,heights=c(1.01,1), widths=c(1,1.5))
 
 
@@ -1129,12 +1105,10 @@ se(Sterile.Ambient.End_Sterile.Reduced.End$mean)
 Reduced_pair_dist=droplevels(rbind(NonSterile.Ambient.End_NonSterile.Reduced.End,Sterile.Ambient.End_Sterile.Reduced.End))
 
 
-boxplot(mean~Group1, data=Reduced_pair_dist, ylab="Distance from Reduced Precipitation")
-
 qqPlot(Reduced_pair_dist$mean)
 hist(Reduced_pair_dist$mean)
 shapiro.test((Reduced_pair_dist$mean))
-#0.2997
+#0.04857
 CommC_m1=aov(mean~Group1, data=Reduced_pair_dist)
 anova(CommC_m1)
 #Group1     1 0.0041023 0.0041023  105.27 6.79e-08 ***
@@ -1211,7 +1185,7 @@ se(Sterile.Ambient.End_Sterile.Reduced.End$mean)
 Reduced_pair_dist=droplevels(rbind(NonSterile.Ambient.End_NonSterile.Reduced.End,Sterile.Ambient.End_Sterile.Reduced.End))
 
 
-boxplot(mean~Group1, data=Reduced_pair_dist, ylab="Distance from Reduced Precipitation")
+
 
 qqPlot(Reduced_pair_dist$mean)
 hist(Reduced_pair_dist$mean)
@@ -1346,7 +1320,7 @@ boxplot(mean~Group1, data=Start_pair_dist, ylab="Dissimilarity or distance from 
 qqPlot(Start_pair_dist$mean)
 hist(Start_pair_dist$mean)
 shapiro.test((Start_pair_dist$mean))
-#0.2997
+#0.05268
 Start_m1=aov(mean~Group1, data=Start_pair_dist)
 anova(Start_m1)
 #Group1     3 0.011049 0.0036830  71.561 3.032e-13 ***
@@ -1409,7 +1383,7 @@ unique(fung.clay_pair_dist_comb_sum$Label)
 
 #Distance from the Starting community and No Dispersal Ambient
 Sterile.Ambient.End_Start=subset(fung.clay_pair_dist_comb_sum, 
-                                 Label=="Between Sterile.Ambient.End and NonSterile.Ambient.Start"&
+                                 Label=="Between NonSterile.Ambient.Start and Sterile.Ambient.End"&
                                    Group1=="Sterile.Ambient.End")
 nrow(Sterile.Ambient.End_Start)
 #8
@@ -1431,7 +1405,7 @@ se(NonSterile.Ambient.End_Start$mean)
 
 #Distance from the Starting community and No Dispersal Drought
 Sterile.Reduced.End_Start=subset(fung.clay_pair_dist_comb_sum, 
-                                 Label=="Between Sterile.Reduced.End and NonSterile.Ambient.Start"&
+                                 Label=="Between NonSterile.Ambient.Start and Sterile.Reduced.End"&
                                    Group1=="Sterile.Reduced.End")
 nrow(Sterile.Reduced.End_Start)
 #8
@@ -1442,7 +1416,7 @@ se(Sterile.Reduced.End_Start$mean)
 
 #Distance from the Starting community and Dispersal Drought
 NonSterile.Reduced.End_Start=subset(fung.clay_pair_dist_comb_sum, 
-                                    Label=="Between NonSterile.Reduced.End and NonSterile.Ambient.Start"&
+                                    Label=="Between NonSterile.Ambient.Start and NonSterile.Reduced.End"&
                                       Group1=="NonSterile.Reduced.End")
 nrow(NonSterile.Reduced.End_Start)
 #8
@@ -1454,7 +1428,6 @@ se(NonSterile.Reduced.End_Start$mean)
 Start_pair_dist=droplevels(rbind(Sterile.Ambient.End_Start,NonSterile.Ambient.End_Start,Sterile.Reduced.End_Start,NonSterile.Reduced.End_Start))
 
 
-boxplot(mean~Group1, data=Start_pair_dist, ylab="Dissimilarity or distance from Initial Community")
 
 qqPlot(log(Start_pair_dist$mean))
 hist(log(Start_pair_dist$mean))
@@ -1488,37 +1461,6 @@ se(Start_pair_dist$mean)
 
 #clay focal taxa
 
-bact.clay.tree=subset_samples(bact.soil.tree, SoilType=="Clay")
-get_taxa_unique(bact.clay.tree, taxonomic.rank="Phylum")
-
-(bact.clay.tree.phylum<-tax_glom(bact.clay.tree, taxrank="Phylum"))
-TopPHYL = names(sort(taxa_sums(bact.clay.tree.phylum), TRUE)[1:10])
-bact.clayT10 = prune_taxa(TopPHYL, bact.clay.tree.phylum)
-
-plot_bar(bact.clayT10, x= "SampleID2", fill="Phylum")
-
-Top20PHYL = names(sort(taxa_sums(bact.clay.tree.phylum), TRUE)[1:20])
-bact.clayT20 = prune_taxa(Top20PHYL, bact.clay.tree.phylum)
-
-plot_bar(bact.clayT20, x= "SampleID2", fill="Phylum")
-
-bact.clay.phylum.prop=transform_sample_counts(bact.clay.tree.phylum, function(x)x/sum(x))
-
-bact.clayT10.prop = prune_taxa(TopPHYL, bact.clay.phylum.prop)
-plot_bar(bact.clayT10.prop, x= "SampleID2", fill="Phylum")+ylab("Proportion")
-
-bact.clayT20.prop = prune_taxa(Top20PHYL, bact.clay.phylum.prop)
-plot_bar(bact.clayT20.prop, x= "SampleID2", fill="Phylum")+ylab("Proportion")
-
-
-prot.clay <- subset_taxa(bact.clay.tree, Phylum=="p:Proteobacteria")
-get_taxa_unique(prot.clay, taxonomic.rank="Class")
-(prot.clay.class<-tax_glom(prot.clay, taxrank="Class"))
-plot_bar(prot.clay.class, x= "SampleID2", fill="Class")
-clay.prop=transform_sample_counts(bact.clay.tree, function(x)x/sum(x))
-prot.clay.prop <- subset_taxa(clay.prop, Phylum=="p:Proteobacteria")
-(prot.clay.prop.class<-tax_glom(prot.clay.prop, taxrank="Class"))
-plot_bar(prot.clay.prop.class, x= "SampleID2", fill="Class")+ylab("Proportion")
 
 #end only
 bact.clayE.tree=subset_samples(bact.clay.tree, SampleTime=="End")
@@ -1543,7 +1485,17 @@ plot_bar(bact.clayET10.prop, x= "SampleID2", fill="Phylum")+ylab("Proportion")
 bact.clayET20.prop = prune_taxa(Top20PHYL, bact.clayE.phylum.prop)
 plot_bar(bact.clayET20.prop, x= "SampleID2", fill="Phylum")
 
-map.bact.clayE=sample_data(bact.clayE.tree)
+map.bact.soil=sample_data(bact.soil.tree)
+Acido.soil.t <- subset_taxa(bact.soil.tree, Phylum=="p:Acidobacteria")
+get_taxa_unique(Acido.soil.t, taxonomic.rank="Phylum")
+Acido.soil.t.reads=sample_sums(Acido.soil.t)
+soil.reads.t=sample_sums(bact.soil.tree)
+Acido.soil.t.reads=cbind(Acido.soil.t.reads,soil.reads.t)
+colnames(Acido.soil.t.reads)<-c("Acido.reads","total.reads")
+Acido.soil.t.reads=merge(Acido.soil.t.reads, map.bact.soil, by ="row.names")
+head(Acido.soil.t.reads)
+Acido.soil.t.reads=mutate(Acido.soil.t.reads, Acido.prop=Acido.reads/total.reads)
+
 
 Acido.clay.t.reads=subset(Acido.soil.t.reads, SoilType=="Clay")
 Acido.clayE.t.reads=subset(Acido.clay.t.reads, SampleTime=="End")
@@ -1561,15 +1513,20 @@ Anova(bact.clayE.Acreads.t,type = 3)
 #RainLevel           51432618  1    8.0472  0.008377 ** 
 lsmeans(bact.clayE.Acreads.t, pairwise~RainLevel*RainCom)
 
-Acreads_soil=ggplot(Acido.clayE.t.reads, aes(com.rain.time, Acido.reads))
-
-Acreads_soil+geom_boxplot(data=Acreads_soil$data, aes(x=com.rain.time, y=Acido.reads, color=NULL), alpha=0.05)+
-  ylab("Acidobacterial Reads")
-
 
 
 
 #NUmber of Firmicutes
+Firm.soil.t <- subset_taxa(bact.soil.tree, Phylum=="p:Firmicutes")
+get_taxa_unique(Firm.soil.t, taxonomic.rank="Phylum")
+Firm.soil.t.reads=sample_sums(Firm.soil.t)
+soil.t.reads=sample_sums(bact.soil.tree)
+Firm.soil.t.reads=cbind(Firm.soil.t.reads,soil.t.reads)
+colnames(Firm.soil.t.reads)<-c("Firm.reads","total.reads")
+Firm.soil.t.reads=merge(Firm.soil.t.reads, map.bact.soil, by ="row.names")
+head(Firm.soil.t.reads)
+Firm.soil.t.reads=mutate(Firm.soil.t.reads, Firm.prop=Firm.reads/total.reads)
+
 Firm.clay.t.reads=subset(Firm.soil.t.reads, SoilType=="Clay")
 Firm.clayE.t.reads=subset(Firm.clay.t.reads, SampleTime=="End")
 
@@ -1585,25 +1542,21 @@ Anova(bact.clayE.Fireads.t,type = 3)
 #RainCom:RainLevel    102  1    3.3934  0.076071 . 
 lsmeans(bact.clayE.Fireads.t, pairwise~RainLevel*RainCom)
 
-Fireads_soil=ggplot(Firm.clayE.t.reads, aes(com.rain.time, Firm.reads))
-
-Fireads_soil+geom_boxplot(data=Fireads_soil$data, aes(x=com.rain.time, y=Firm.reads, color=NULL), alpha=0.05)+
-  ylab("Firmicutes Reads")
-
 #proteobacteria composition
-prot.clayE <- subset_taxa(bact.clay.tree, Phylum=="p:Proteobacteria")
-get_taxa_unique(prot.clayE, taxonomic.rank="Class")
-(prot.clayE.class<-tax_glom(prot.clayE, taxrank="Class"))
-plot_bar(prot.clayE.class, x= "SampleID2", fill="Class")
-clayE.prop=transform_sample_counts(bact.clay.tree, function(x)x/sum(x))
-prot.clayE.prop <- subset_taxa(clayE.prop, Phylum=="p:Proteobacteria")
-(prot.clayE.prop.class<-tax_glom(prot.clayE.prop, taxrank="Class"))
-plot_bar(prot.clayE.prop.class, x= "SampleID2", fill="Class")+ylab("Proportion")
-
+#NUmber of gammaproteobacteria
+Gproto.soil.t <- subset_taxa(bact.soil.tree, Class=="c:Gammaproteobacteria")
+get_taxa_unique(Gproto.soil.t, taxonomic.rank="Class")
+Gproto.soil.t.reads=sample_sums(Gproto.soil.t)
+soil.t.reads=sample_sums(bact.soil.tree)
+Gproto.soil.t.reads=cbind(Gproto.soil.t.reads,soil.t.reads)
+colnames(Gproto.soil.t.reads)<-c("Gamma.reads","total.reads")
+Gproto.soil.t.reads=merge(Gproto.soil.t.reads, map.bact.soil, by ="row.names")
+head(Gproto.soil.t.reads)
+Gproto.soil.t.reads=mutate(Gproto.soil.t.reads, Gamma.prop=Gamma.reads/total.reads)
 Gproto.clay.t.reads=subset(Gproto.soil.t.reads, SoilType=="Clay")
 Gproto.clayE.t.reads=subset(Gproto.clay.t.reads,SampleTime=="End")
 
-#NUmber of gammaproteobacteria
+
 bact.clayE.Greads.t=lm((Gamma.reads)^-1~RainCom*RainLevel, data=Gproto.clayE.t.reads)
 qqPlot(studres(bact.clayE.Greads.t))
 hist(studres(bact.clayE.Greads.t))
@@ -1615,17 +1568,23 @@ Anova(bact.clayE.Greads.t,type = 3)
 #RainLevel         3.5200e-07  1  20.3099 0.0001067 ***
 lsmeans(bact.clayE.Greads.t, pairwise~RainLevel*RainCom)
 
-Greads_soil=ggplot(Gproto.clayE.t.reads, aes(com.rain.time, Gamma.reads))
 
-Greads_soil+geom_boxplot(data=Greads_soil$data, aes(x=com.rain.time, y=Gamma.reads, color=NULL), alpha=0.05)
-
-
+#NUmber of Nitrospira
+Nproto.soil.t <- subset_taxa(bact.soil.tree, Class=="c:Nitrospira")
+get_taxa_unique(Nproto.soil.t, taxonomic.rank="Class")
+Nproto.soil.t.reads=sample_sums(Nproto.soil.t)
+soil.t.reads=sample_sums(bact.soil.tree)
+Nproto.soil.t.reads=cbind(Nproto.soil.t.reads,soil.t.reads)
+colnames(Nproto.soil.t.reads)<-c("Nitrospira.reads","total.reads")
+Nproto.soil.t.reads=merge(Nproto.soil.t.reads, map.bact.soil, by ="row.names")
+head(Nproto.soil.t.reads)
+Nproto.soil.t.reads=mutate(Nproto.soil.t.reads, Nitrospira.prop=Nitrospira.reads/total.reads)
 
 
 
 Nproto.clay.t.reads=subset(Nproto.soil.t.reads, SoilType=="Clay")
 Nproto.clayE.t.reads=subset(Nproto.clay.t.reads,SampleTime=="End")
-#NUmber of Nitrospira
+
 bact.clayE.Nreads.t=lm((Nitrospira.reads)~RainCom*RainLevel, data=Nproto.clayE.t.reads)
 qqPlot(studres(bact.clayE.Nreads.t))
 hist(studres(bact.clayE.Nreads.t))
@@ -1636,12 +1595,6 @@ boxCox(bact.clayE.Nreads.t)
 Anova(bact.clayE.Nreads.t,type = 3)
 #nada sig 
 lsmeans(bact.clayE.Nreads.t, pairwise~RainLevel*RainCom)
-
-Nreads_soil=ggplot(Nproto.clayE.t.reads, aes(com.rain.time, Nitrospira.reads))
-
-Nreads_soil+geom_boxplot(data=Nreads_soil$data, aes(x=com.rain.time, y=Nitrospira.reads, color=NULL), alpha=0.05)
-
-
 
 
 #####DOC Taxa Analyses####
@@ -1667,7 +1620,7 @@ Nreads_soil+geom_boxplot(data=Nreads_soil$data, aes(x=com.rain.time, y=Nitrospir
 bact.soil.n<-taxa_names(bact.soil.tree)
 length(bact.soil.n)
 #14893
-#tree 47751
+
 
 bact.map.soil=sample_data(bact.soil.tree)
 
@@ -1675,40 +1628,39 @@ bact.rain.n<-taxa_names(bact.rain.tree)
 
 length(bact.rain.n)
 #4844
-#tree 13037
+
 
 
 bact.Names_s_in_r<-bact.soil.n[bact.soil.n %in% bact.rain.n]
 length(bact.Names_s_in_r) ## How many OTUs
 #2785
-#7311
+
 
 length(bact.Names_s_in_r)/length(bact.soil.n)     ## Proportion OTUs in ocean, out of total in soil
 #0.1870006
-#0.1531067
+
 
 bact.filtered<-prune_taxa(bact.Names_s_in_r,bact.soil)
-#save(bact.filtered, file = "bact.filtered_filtered.RData")
-load("bact.filtered_filtered.RData")
+
 bact.sumFilteredsam=sample_sums(bact.filtered)
 mean(bact.sumFilteredsam)
 #42586.05
-#54436.68
+
 
 sum(sample_sums(bact.filtered))
 #3492056
-#4463808
+
 
 sum(bact.sumFilteredsam)/sum(sample_sums(bact.soil))
 #0.6654544
-#0.71285
+
 
 
 bact.fil.sampl=as(bact.sumFilteredsam, "matrix")
 colnames(bact.fil.sampl)="filt.sum"
 mean(bact.fil.sampl)
 #42586.05
-#54436.68
+
 
 bact.otabfil <- as(otu_table(bact.filtered), "matrix") # Taxa are rows
 bact.present_absent.fil <- (bact.otabfil > 0)
@@ -1717,7 +1669,7 @@ sh_bact.filt.rich=as.matrix(bact.filt.rich)
 colnames(sh_bact.filt.rich)="bact.filt.rich"
 mean(sh_bact.filt.rich)
 #1063.598
-#2146.317
+
 
 
 
@@ -1725,14 +1677,14 @@ bact.sampl=as(sample_sums(bact.soil.tree), "matrix")
 colnames(bact.sampl)="all.sum"
 mean(bact.sampl)
 #63995.44
-#tree 76364.7
+
 
 bact.otab <- as(otu_table(bact.soil.tree), "matrix") # Taxa are rows
 bact.present_absent <- (bact.otab > 0)
 bact.rich <- apply(t(bact.present_absent), 1, sum)
 mean(bact.rich)
 #3305.085
-#tree 6075
+
 
 
 
@@ -1741,38 +1693,165 @@ bact.soil.sum=merge(bact.soil.sum, bact.map.soil, by="row.names")
 bact.soil.sum$Prop_Reads_Shared=with(bact.soil.sum, bact.soil.sum$filt.sum/bact.soil.sum$all.sum)
 mean(bact.soil.sum$Prop_Reads_Shared)
 #0.6654133
-#tree 0.7120106
 
-sd(bact.soil.sum$Prop_Reads_Shared)
 bact.soil.sum$Prop_OTUs_Shared=with(bact.soil.sum, bact.soil.sum$bact.filt.rich/bact.soil.sum$bact.rich)
 mean(bact.soil.sum$Prop_OTUs_Shared)
 #0.3516787
-#tree 0.3647252
+
 
 bact.soil.sum$com.rain.soil.time=with(bact.soil.sum, interaction(RainCom, RainLevel,SoilType,SampleTime))
 
 
-#bacteria
 
-#load("bact.soil.sum_filtered.RData")
 #end samples
 bact.soilE.sum=subset(bact.soil.sum, SampleTime=="End")
 mean(bact.soilE.sum$Prop_Reads_Shared)
 #0.6542716
-#0.6998491
+
 mean(bact.soilE.sum$Prop_OTUs_Shared)
 #0.3181375
-#0.3494183
-#save(U.bact.soil.sum, file = "U.bact.soil.sum_filtered.RData")
-load("U.bact.soil.sum_filtered.RData")
+
+
+#non-overlapping OTUs
+bact.soil_NO_TREE=otu_table(bact.soil.tree)
+bact.rain_NO_TREE=otu_table(bact.rain.tree)
+bact.rainx.merge=merge_phyloseq(bact.soil_NO_TREE,bact.rain_NO_TREE)
+
+ntaxa(bact.rainx.merge)
+#16952
+
+
+
+bact.rainx.merge=phyloseq(otu_table(bact.rainx.merge),tax_table(bact.data),sample_data(bact.data),phy_tree(bact.data))
+ntaxa(bact.rainx.merge)
+#16952
+bact.rainx.merge.tree=bact.rainx.merge
+
+
+ntaxa(bact.rainx.merge.tree)
+#16952
+
+
+
+bact.Names_s_not_in_r<-bact.soil.n[bact.soil.n %w/o% bact.rain.n]
+length(bact.Names_s_not_in_r)
+#12108
+
+
+bact.Names_r_not_in_s<-bact.rain.n[bact.rain.n %w/o% bact.soil.n]
+length(bact.Names_r_not_in_s)
+#2059
+
+
+
+bact.Names_no_overlap=c(bact.Names_s_not_in_r,bact.Names_r_not_in_s)
+length(bact.Names_no_overlap)
+#14167
+
+
+nonover.bact.filtered.tree<-prune_taxa(bact.Names_no_overlap,bact.rainx.merge.tree)
+nonover.bact.filtered.tree=prune_taxa(taxa_sums(nonover.bact.filtered.tree) > 0, nonover.bact.filtered.tree)
+ntaxa(nonover.bact.filtered.tree)
+#14167
+
+
+sum(otu_table(nonover.bact.filtered.tree))
+#1980149
+
+
+
+#look at soils
+U.bact.soil.tree<-subset_samples(nonover.bact.filtered.tree, SampleType=="Soil")
+U.bact.soil.tree<-prune_taxa(taxa_sums(U.bact.soil.tree)>0,U.bact.soil.tree)
+ntaxa(U.bact.soil.tree)
+#12108
+
+
+sum(otu_table(U.bact.soil.tree))
+#1755570
+
+
+
+
+#prop not shared
+length(bact.Names_s_not_in_r)/length(bact.soil.n)     ## Proportion OTUs in ocean, out of total in soil
+#0.8129994
+
+
+U.bact.soil.tree<-subset_samples(nonover.bact.filtered.tree, SampleType=="Soil")
+U.bact.soil.tree<-prune_taxa(taxa_sums(U.bact.soil.tree)>0,U.bact.soil.tree)
+ntaxa(U.bact.soil.tree)
+#12108
+
+
+
+U.bact.sumFilteredsam=sample_sums(U.bact.soil.tree)
+mean(U.bact.sumFilteredsam)
+#21409.39
+
+
+sum(otu_table(U.bact.soil.tree))
+#1755570
+
+
+sum(U.bact.sumFilteredsam)/sum(sample_sums(bact.soil.tree))
+#0.3345456
+
+
+U.bact.fil.sampl=as(U.bact.sumFilteredsam, "matrix")
+colnames(U.bact.fil.sampl)="filt.sum"
+mean(U.bact.fil.sampl)
+#21409.39
+
+
+U.bact.otabfil <- as(otu_table(U.bact.soil.tree), "matrix") # Taxa are rows
+U.bact.present_absent.fil <- (U.bact.otabfil > 0)
+U.bact.filt.rich <- apply(t(U.bact.present_absent.fil), 1, sum)
+U.bact.filt.rich=as.matrix(U.bact.filt.rich)
+colnames(U.bact.filt.rich)="bact.filt.rich"
+mean(U.bact.filt.rich)
+#2241.488
+
+
+
+
+bact.sampl=as(sample_sums(bact.soil.tree), "matrix")
+colnames(bact.sampl)="all.sum"
+mean(bact.sampl)
+#63995.44
+
+
+bact.otab <- as(otu_table(bact.soil.tree), "matrix") # Taxa are rows
+bact.present_absent <- (bact.otab > 0)
+bact.rich <- apply(t(bact.present_absent), 1, sum)
+mean(bact.rich)
+#3305.085
+
+
+
+
+U.bact.soil.sum=cbind(U.bact.fil.sampl,U.bact.filt.rich,bact.sampl,bact.rich)
+U.bact.soil.sum=merge(U.bact.soil.sum, bact.map.soil, by="row.names")
+U.bact.soil.sum$Prop_Reads_Shared=with(U.bact.soil.sum, U.bact.soil.sum$filt.sum/U.bact.soil.sum$all.sum)
+mean(U.bact.soil.sum$Prop_Reads_Shared)
+#0.3345867
+
+
+
+U.bact.soil.sum$Prop_OTUs_Shared=with(U.bact.soil.sum, U.bact.soil.sum$bact.filt.rich/U.bact.soil.sum$bact.rich)
+mean(U.bact.soil.sum$Prop_OTUs_Shared)
+#0.6483213
+
+
+U.bact.soil.sum$com.rain.soil.time=with(U.bact.soil.sum, interaction(RainCom, RainLevel,SoilType,SampleTime))
+
 #end samples
 U.bact.soilE.sum=subset(U.bact.soil.sum, SampleTime=="End")
 mean(U.bact.soilE.sum$Prop_Reads_Shared)
 #0.3457284
-#0.3001509
+
 mean(U.bact.soilE.sum$Prop_OTUs_Shared)
 #0.6818625
-#0.6505817
 
 
 
@@ -1804,7 +1883,7 @@ com.bact.clay.sum.end_sum=summarise_at(com.bact.clay.sum.end, vars(bact.filt.ric
 com.bact.clay.sum.end_sum$overl_RainCom=with(com.bact.clay.sum.end_sum,interaction(overl,RainCom))
 com.bact.clay.sum.end_sum$overl_RainLevel=with(com.bact.clay.sum.end_sum,interaction(RainLevel,overl))
 
-#####VERSION2####
+#####Bact Rain Overlap Graphs####
 
 
 
@@ -1916,7 +1995,7 @@ Reduced,NonSterile - Reduced,Sterile    -359.500 103.3698 28  -3.478  0.0086
 Ambient,Sterile - Reduced,Sterile        244.625 103.3698 28   2.367  0.1073"
 
 
-#number of the reads shared with rain
+#number of the reads not shared with rain
 
 U.bact.clayE.t.reads=lm((filt.sum)~RainCom*RainLevel, data=U.bact.clayE.sum)
 qqPlot(studres(U.bact.clayE.t.reads))
@@ -1930,8 +2009,7 @@ Anova(U.bact.clayE.t.reads,type = 3)
 
 lsmeans(U.bact.clayE.t.reads, pairwise~RainLevel*RainCom)
 
-#save(bact.filtered, file = "bact.filtered_filtered.RData")
-load("bact.filtered_filtered.RData")
+
 
 bact.filtered_map=sample_data(bact.filtered)
 bact.filtered.divfil=estimate_richness(bact.filtered,measures=alpha_meas)
@@ -1989,8 +2067,7 @@ sh.bact.clayE.t.chao1_g=ggplot(sh.bact.clayE.t.divfil_sum, aes(RainLevel, Chao1_
 
 #Not shared
 
-#save(nonover.bact.filtered.tree, file = "nonover.bact.filtered.tree_filtered.RData")
-load("nonover.bact.filtered.tree_filtered.RData")
+
 
 nonover.bact.filtered_map=sample_data(nonover.bact.filtered.tree)
 nonover.bact.filtered.divfil=estimate_richness(nonover.bact.filtered.tree,measures=alpha_meas)
@@ -2055,39 +2132,37 @@ fung.rain.n<-taxa_names(fung.rain)
 fung.Names_s_in_r<-fung.soil.n[fung.soil.n %in% fung.rain.n]
 length(fung.Names_s_in_r) ## How many OTUs
 #360
-#379
+
 
 length(fung.Names_s_in_r)/length(fung.soil.n)     
 #0.1957586
-#0.1964749
+
 
 fung.filtered<-prune_taxa(fung.Names_s_in_r,fung.soil)
 ntaxa(fung.filtered)
 #360
-#379
 
-#save(fung.filtered, file = "fung.filtered_filtered.RData")
-load("fung.filtered_filtered.RData")
+
 
 sum(otu_table(fung.filtered))
 #1520492
-#1709805
+
 
 fung.sumFilteredsam=sample_sums(fung.filtered)
 mean(fung.sumFilteredsam)
 #18542.59
-#20851.28
+
 
 sum(fung.sumFilteredsam)/sum(sample_sums(fung.soil))
 #0.7070277
-#0.7517249
+
 
 
 sh.fung.fil.sampl=as(fung.sumFilteredsam, "matrix")
 colnames(sh.fung.fil.sampl)="filt.sum"
 mean(sh.fung.fil.sampl)
 #18542.59
-#20851.28
+
 
 sh.fung.otabfil <- as(otu_table(fung.filtered), "matrix") # Taxa are rows
 sh.fung.present_absent.fil <- (sh.fung.otabfil > 0)
@@ -2095,20 +2170,20 @@ sh.fung.filt.rich <- as(apply(t(sh.fung.present_absent.fil), 1, sum), "matrix")
 colnames(sh.fung.filt.rich)="fung.filt.rich"
 mean(sh.fung.filt.rich)
 #73.52439
-#78.20732
+
 
 fung.sampl=as(sample_sums(fung.soil), "matrix")
 colnames(fung.sampl)="all.sum"
 mean(fung.sampl)
 #26226.11
-#27737.91
+
 
 fung.otab <- as(otu_table(fung.soil), "matrix") # Taxa are rows
 fung.present_absent <- (fung.otab > 0)
 fung.rich <- apply(t(fung.present_absent), 1, sum)
 mean(fung.rich)
 #194.3293
-#186.3293
+
 
 
 
@@ -2117,36 +2192,121 @@ fung.soil.sum=merge(fung.soil.sum, fung.map.soil, by="row.names")
 fung.soil.sum$Prop_Reads_Shared=with(fung.soil.sum, fung.soil.sum$filt.sum/fung.soil.sum$all.sum)
 mean(fung.soil.sum$Prop_Reads_Shared)
 #0.7055521
-#0.7461241
+
 
 fung.soil.sum$Prop_OTUs_Shared=with(fung.soil.sum, fung.soil.sum$fung.filt.rich/fung.soil.sum$fung.rich)
 mean(fung.soil.sum$Prop_OTUs_Shared)
 #0.391438
-#0.414505
+
 
 fung.soil.sum$com.rain.soil.time=with(fung.soil.sum, interaction(RainCom, RainLevel,SoilType,SampleTime))
 
-#save(fung.soil.sum, file = "fung.soil.sum_filtered.RData")
-#load("fung.soil.sum_filtered.RData")
+
 
 fung.soilE.sum=subset(fung.soil.sum, SampleTime=="End")
 mean(fung.soilE.sum$Prop_Reads_Shared)
 #0.6843251
-#0.7359565
+
 mean(fung.soilE.sum$Prop_OTUs_Shared)
 #0.371035
-#0.3932623
-#save(U.fung.soil.sum, file = "U.fung.soil.sum_filtered.RData")
-load("U.fung.soil.sum_filtered.RData")
 
+#non-overlapping OTUs
+fung.rainx.merge=merge_phyloseq(fung.soil,fung.rain)
+ntaxa(fung.rainx.merge)
+#3930
+
+
+fung.Names_s_not_in_r<-fung.soil.n[fung.soil.n %w/o% fung.rain.n]
+length(fung.Names_s_not_in_r)
+#1479
+
+fung.Names_r_not_in_s<-fung.rain.n[fung.rain.n %w/o% fung.soil.n]
+length(fung.Names_r_not_in_s)
+#2091
+fung.Names_no_overlap=c(fung.Names_s_not_in_r,fung.Names_r_not_in_s)
+length(fung.Names_no_overlap)
+#3570
+
+
+#soil
+U.fung.rainx<-prune_taxa(fung.Names_no_overlap,fung.rainx.merge)
+ntaxa(U.fung.rainx)
+#3570
+
+sum(otu_table(U.fung.rainx))
+#899233
+
+
+#look at soils
+U.fung.soil<-subset_samples(U.fung.rainx, SampleType=="Soil")
+U.fung.soil<-prune_taxa(taxa_sums(U.fung.soil)>0,U.fung.soil)
+ntaxa(U.fung.soil)
+#1479
+
+sum(otu_table(U.fung.soil))
+#630049
+
+
+
+#prop not shared
+length(fung.Names_s_not_in_r)/length(fung.soil.n)     ## Proportion OTUs in ocean, out of total in soil
+#0.8042414
+
+U.fung.sumFilteredsam=sample_sums(U.fung.soil)
+mean(U.fung.sumFilteredsam)
+#7683.524
+
+sum(otu_table(U.fung.soil))
+#630049
+
+sum(U.fung.sumFilteredsam)/sum(sample_sums(fung.soil))
+#0.2929723
+
+U.fung.fil.sampl=as(U.fung.sumFilteredsam, "matrix")
+colnames(U.fung.fil.sampl)="filt.sum"
+mean(U.fung.fil.sampl)
+#7683.524
+
+U.fung.otabfil <- as(otu_table(U.fung.soil), "matrix") # Taxa are rows
+U.fung.present_absent.fil <- (U.fung.otabfil > 0)
+U.fung.filt.rich <- apply(t(U.fung.present_absent.fil), 1, sum)
+U.fung.filt.rich=as.matrix(U.fung.filt.rich)
+colnames(U.fung.filt.rich)="fung.filt.rich"
+mean(U.fung.filt.rich)
+#120.8049
+
+
+
+fung.sampl=as(sample_sums(fung.soil), "matrix")
+colnames(fung.sampl)="all.sum"
+mean(fung.sampl)
+#26226.11
+
+fung.otab <- as(otu_table(fung.soil), "matrix") # Taxa are rows
+fung.present_absent <- (fung.otab > 0)
+fung.rich <- apply(t(fung.present_absent), 1, sum)
+mean(fung.rich)
+#194.3293
+
+U.fung.soil.sum=cbind(U.fung.fil.sampl,U.fung.filt.rich,fung.sampl,fung.rich)
+U.fung.soil.sum=merge(U.fung.soil.sum, fung.map.soil, by="row.names")
+U.fung.soil.sum$Prop_Reads_Shared=with(U.fung.soil.sum, U.fung.soil.sum$filt.sum/U.fung.soil.sum$all.sum)
+mean(U.fung.soil.sum$Prop_Reads_Shared)
+#0.2944479
+
+U.fung.soil.sum$Prop_OTUs_Shared=with(U.fung.soil.sum, U.fung.soil.sum$fung.filt.rich/U.fung.soil.sum$fung.rich)
+mean(U.fung.soil.sum$Prop_OTUs_Shared)
+#0.608562
+
+U.fung.soil.sum$com.rain.soil.time=with(U.fung.soil.sum, interaction(RainCom, RainLevel,SoilType,SampleTime))
 
 U.fung.soilE.sum=subset(U.fung.soil.sum, SampleTime=="End")
 mean(U.fung.soilE.sum$Prop_Reads_Shared)
 #0.3156749
-#0.2640435
+
 mean(U.fung.soilE.sum$Prop_OTUs_Shared)
 #0.628965
-#0.6067377
+
 
 
 
@@ -2178,7 +2338,7 @@ com.fung.clay.sum.end_sum=summarise_at(com.fung.clay.sum.end, vars(fung.filt.ric
 com.fung.clay.sum.end_sum$overl_RainCom=with(com.fung.clay.sum.end_sum,interaction(overl,RainCom))
 com.fung.clay.sum.end_sum$overl_RainLevel=with(com.fung.clay.sum.end_sum,interaction(RainLevel,overl))
 
-#####VERSION2####
+#####FungiRain Overlap Graphs####
 
 
 
@@ -2195,11 +2355,6 @@ fung.clayE.OTUs_g2=ggplot(com.fung.clay.sum.end_sum, aes(overl_RainLevel, fung.f
                      axis.title=element_text(size=20),panel.grid.major=element_blank(),panel.grid.minor=element_blank())+
     geom_vline(xintercept = 2.5, size=1.2)+ggtitle(label = "Fungi")+
     theme(plot.title = element_text(hjust = 0.5, size=28)))
-
-
-#####
-
-
 
 
 
@@ -2219,10 +2374,10 @@ fung.clayE.reads_g2=ggplot(com.fung.clay.sum.end_sum, aes(overl_RainLevel, filt.
     theme(plot.title = element_text(hjust = 0.5, size=28)))
 
 
-#OTU Number
+#OTU Number combined graph
 grid.arrange(p_bact.clayE.OTUs_g2,p_fung.clayE.OTUs_g2, ncol=2,widths=c(1.1,1))
 
-#Read number
+#Read number combined graph
 grid.arrange(p_bact.clayE.reads_g2,p_fung.clayE.reads_g2, ncol=2,widths=c(1.1,1))
 
 
@@ -2230,10 +2385,10 @@ grid.arrange(p_bact.clayE.reads_g2,p_fung.clayE.reads_g2, ncol=2,widths=c(1.1,1)
 fung.clayE.sum=subset(com.fung.clay.sum.end, overl=="Shared")
 mean(fung.clayE.sum$Prop_Reads_Shared)
 #0.7068355
-#0.7500066
+
 mean(fung.clayE.sum$Prop_OTUs_Shared)
 #0.3781697
-#0.3950046
+
 #number of the OTUs shared with rain
 
 sh.fung.clayE.OTU=lm((fung.filt.rich)~RainCom*RainLevel, data=fung.clayE.sum)
@@ -2323,10 +2478,6 @@ Ambient,Sterile - Reduced,Sterile        -373.625 1296.564 28  -0.288  0.9915"
 
 
 
-
-#save(fung.filtered, file = "fung.filtered_filtered.RData")
-load("fung.filtered_filtered.RData")
-
 fung.filtered_map=sample_data(fung.filtered)
 fung.filtered.divfil=estimate_richness(fung.filtered,measures=alpha_meas)
 
@@ -2379,8 +2530,7 @@ sh.fung.clayE.chao1_g=ggplot(sh.fung.clayE.divfil_sum, aes(RainLevel, Chao1_mean
     geom_hline(yintercept = mean(sh.fung.clay.t0.divfil$Chao1), size=1.2))
 
 #Not shared
-#save(U.fung.rainx, file = "U.fung.rainx_filtered.RData")
-load("U.fung.rainx_filtered.RData")
+
 U.fung.filtered_map=sample_data(U.fung.rainx)
 U.fung.filtered.divfil=estimate_richness(U.fung.rainx,measures=alpha_meas)
 
@@ -2433,9 +2583,11 @@ U.fung.clayE.chao1_g=ggplot(U.fung.clayE.divfil_sum, aes(RainLevel, Chao1_mean, 
                      axis.title.y=element_text(size=20),panel.grid.major=element_blank(),panel.grid.minor=element_blank())+
     geom_hline(yintercept = mean(U.fung.clay.t0.divfil$Chao1), size=1.2))
 
+
+#combined richness of shared and not shared taxa
 grid.arrange(sh.bact.clayE_p1, sh.fung.clayE_p1, U.bact.clayE_p1,U.fung.clayE_p1, ncol=2,widths=c(1,1),heights=c(1,1.1))
 
-#1400X1000
+
 
 #####Soil Taxa Shared with rain####
 
@@ -2463,27 +2615,7 @@ Planct.soil.t.reads=mutate(Planct.soil.t.reads, Planct.prop=Planct.reads/total.r
 
 Planct.soilE.t.reads=subset(Planct.soil.t.reads, SampleTime=="End")
 Planct.clayE.t.reads=subset(Planct.soilE.t.reads, SoilType=="Clay")
-#NUmber of p:Planctomycetes
-bact.clayE.Preads.t=lm((Planct.reads)~RainCom*RainLevel, data=Planct.clayE.t.reads)
-qqPlot(studres(bact.clayE.Preads.t))
-hist(studres(bact.clayE.Preads.t))
-shapiro.test(studres(bact.clayE.Preads.t))
-#p-value = 0.8294
-boxCox(bact.clayE.Preads.t)
-#looks okay....
-Anova(bact.clayE.Preads.t,type = 3)
-#RainCom             21882420  1  13.2134  0.001108 ** 
-#RainLevel           21461076  1  12.9590  0.001215 ** 
-lsmeans(bact.clayE.Preads.t, pairwise~RainLevel*RainCom)
 
-Preads_clay=ggplot(Planct.clayE.t.reads, aes(com.rain.time, Planct.reads))
-
-Preads_clay+geom_boxplot(data=Preads_clay$data, aes(x=com.rain.time, y=Planct.reads, color=NULL), alpha=0.05)+
-  ylab("Planctomycetes Reads")+scale_x_discrete(limits = positions,labels=c("Dispersal\nAmbient", 
-                                                                            "Dispersal\nDrought",
-                                                                            "No Dispersal\nAmbient", 
-                                                                            "No Dispersal\nDrought"))+
-  xlab(NULL)+theme(axis.text.y=element_text(size=18),axis.text.x=element_text(size=18),axis.title=element_text(size=20))
 
 #Prop of Planctomycetes
 bact.clayE.Preads.prop.t=lm((Planct.prop)~RainCom*RainLevel, data=Planct.clayE.t.reads)
@@ -2499,27 +2631,15 @@ Anova(bact.clayE.Preads.prop.t,type = 3)
 #RainCom:RainLevel 0.000528  1    8.1895  0.007885 ** 
 lsmeans(bact.clayE.Preads.prop.t, pairwise~RainLevel*RainCom)
 
-Planct.clayE.t.reads=Planct.clayE.t.reads %>% group_by(RainCom, RainLevel)
-Planct.clayE.t.reads_sum=summarise_at(Planct.clayE.t.reads, vars(Planct.reads,Planct.prop),funs(mean,se=sd(.)/sqrt(n()),sd))
+
 
 positions <- c("NonSterile.Ambient.End", "NonSterile.Reduced.End", 
                "Sterile.Ambient.End", "Sterile.Reduced.End")
-Pprop_clay=ggplot(Planct.clayE.t.reads, aes(com.rain.time, Planct.prop))
 
-Pprop_clay+geom_boxplot(data=Pprop_clay$data, aes(x=com.rain.time, y=Planct.prop, color=NULL), alpha=0.05)+
-  ylab("Prop reads Planctomycetes")+scale_x_discrete(limits = positions,labels=c("Dispersal\nAmbient", 
-                                                                                 "Dispersal\nDrought",
-                                                                                 "No Dispersal\nAmbient", 
-                                                                                 "No Dispersal\nDrought"))+
-  xlab(NULL)+theme(axis.text.y=element_text(size=18),axis.text.x=element_text(size=18),axis.title=element_text(size=20))
 
 Planct.soil.t.readsT0=subset(Planct.soil.t.reads, SampleTime=="Start")
 Planct.clayE.t.readsT0=subset(Planct.soil.t.readsT0, SoilType=="Clay")
 mean(Planct.clayE.t.readsT0$Planct.prop)
-
-
-
-
 
 
 #
@@ -2551,35 +2671,9 @@ Actin.soil.t.reads=mutate(Actin.soil.t.reads, Actin.prop=Actin.reads/total.reads
 
 Actin.soilE.t.reads=subset(Actin.soil.t.reads, SampleTime=="End")
 Actin.clayE.t.reads=subset(Actin.soilE.t.reads, SoilType=="Clay")
-#NUmber of p__Actinobacteria
-bact.clayE.Actinreads.t=lm((Actin.reads)~RainCom*RainLevel, data=Actin.clayE.t.reads)
-qqPlot(studres(bact.clayE.Actinreads.t))
-hist(studres(bact.clayE.Actinreads.t))
-shapiro.test(studres(bact.clayE.Actinreads.t))
-#p-value = 0.1916
-boxCox(bact.clayE.Actinreads.t)
-#looks okay....
-Anova(bact.clayE.Actinreads.t,type = 3)
-#RainLevel          50548999  1  40.0657 7.571e-07 ***
-#RainCom:RainLevel   7295245  1   5.7823   0.02305 *
-
-lsmeans(bact.clayE.Actinreads.t, pairwise~RainLevel*RainCom)
 
 
-Actin.clayE.t.reads=Actin.clayE.t.reads %>% group_by(RainCom, RainLevel)
-Actin.clayE.t.reads_sum=summarise_at(Actin.clayE.t.reads, vars(Actin.reads,Actin.prop),funs(mean,se=sd(.)/sqrt(n()),sd))
-
-
-Actinreads_clay=ggplot(Actin.clayE.t.reads, aes(com.rain.time, Actin.reads))
-
-Actinreads_clay+geom_boxplot(data=Actinreads_clay$data, aes(x=com.rain.time, y=Actin.reads, color=NULL), alpha=0.05)+
-  ylab("Actinobacteria Reads")+scale_x_discrete(limits = positions,labels=c("Dispersal\nAmbient", 
-                                                                            "Dispersal\nDrought",
-                                                                            "No Dispersal\nAmbient", 
-                                                                            "No Dispersal\nDrought"))+
-  xlab(NULL)+theme(axis.text.y=element_text(size=18),axis.text.x=element_text(size=18),axis.title=element_text(size=20))
-
-#Prop of p__Actinobacteria
+#Prop of pctinobacteria
 bact.clayE.Actinreads.prop.t=lm((Actin.prop)~RainCom*RainLevel, data=Actin.clayE.t.reads)
 qqPlot(studres(bact.clayE.Actinreads.prop.t))
 hist(studres(bact.clayE.Actinreads.prop.t))
@@ -2592,15 +2686,15 @@ Anova(bact.clayE.Actinreads.prop.t,type = 3)
 #RainCom:RainLevel 0.001648  1   14.5913 0.0006797 ***
 
 lsmeans(bact.clayE.Actinreads.prop.t, pairwise~RainLevel*RainCom)
+"$contrasts
+ contrast                                estimate      SE df t.ratio p.value
+ Ambient,NonSterile - Reduced,NonSterile  -0.0426 0.00531 28 -8.019  <.0001 
+ Ambient,NonSterile - Ambient,Sterile     -0.0182 0.00531 28 -3.434  0.0095 
+ Ambient,NonSterile - Reduced,Sterile     -0.0322 0.00531 28 -6.051  <.0001 
+ Reduced,NonSterile - Ambient,Sterile      0.0244 0.00531 28  4.585  0.0005 
+ Reduced,NonSterile - Reduced,Sterile      0.0105 0.00531 28  1.968  0.2240 
+ Ambient,Sterile - Reduced,Sterile        -0.0139 0.00531 28 -2.617  0.0639 "
 
-Actinprop_clay=ggplot(Actin.clayE.t.reads, aes(com.rain.time, Actin.prop))
-
-Actinprop_clay+geom_boxplot(data=Actinprop_clay$data, aes(x=com.rain.time, y=Actin.prop, color=NULL), alpha=0.05)+
-  ylab("Prop reads Actinobacteria")+scale_x_discrete(limits = positions,labels=c("Dispersal\nAmbient", 
-                                                                                 "Dispersal\nDrought",
-                                                                                 "No Dispersal\nAmbient", 
-                                                                                 "No Dispersal\nDrought"))+
-  xlab(NULL)+theme(axis.text.y=element_text(size=18),axis.text.x=element_text(size=18),axis.title=element_text(size=20))
 
 
 Actin.soil.t.readsT0=subset(Actin.soil.t.reads, SampleTime=="Start")
@@ -2608,21 +2702,9 @@ Actin.clayE.t.readsT0=subset(Actin.soil.t.readsT0, SoilType=="Clay")
 mean(Actin.clayE.t.readsT0$Actin.prop)
 positions <- c("NonSterile.Ambient.End", "NonSterile.Reduced.End", 
                "Sterile.Ambient.End", "Sterile.Reduced.End")
-Actinprop_clay=ggplot(Actin.clayE.t.reads, aes(com.rain.time, Actin.prop))
-(bact.clayE_Actin=Actinprop_clay+stat_boxplot(geom = "errorbar", width=0.4,color="black")+
-    geom_boxplot(data=Actinprop_clay$data, aes(x=com.rain.time, y=Actin.prop,
-                                               fill=com.rain.time),
-                 outlier.shape = 19, outlier.size = 2.5,color="black")+
-    scale_x_discrete(limits = positions,labels=c("Dispersal \nAmbient", 
-                                                 "Dispersal \nDrought",
-                                                 "No Dispersal \nAmbient", 
-                                                 "No Dispersal \nDrought"))+
-    scale_y_continuous(name = "Proportion of reads Actinobacteria", limits = c(0.04,0.115))+xlab(NULL)+
-    theme_bw()+theme(legend.position = "none",axis.text.y=element_text(size=18),axis.text.x=element_text(size=18), 
-                     axis.title=element_text(size=20),panel.grid.major=element_blank(),panel.grid.minor=element_blank())+
-    scale_fill_manual(values=c("grey","grey", "white", "white","green"))+
-    geom_hline(yintercept = mean(Actin.clayE.t.readsT0$Actin.prop), size=1.2))
 
+Actin.clayE.t.reads=Actin.clayE.t.reads %>% group_by(RainCom, RainLevel)
+Actin.clayE.t.reads_sum=summarise_at(Actin.clayE.t.reads, vars(Actin.reads,Actin.prop),funs(mean,se=sd(.)/sqrt(n()),sd))
 
 Actinprop_clay=ggplot(Actin.clayE.t.reads_sum, aes(RainLevel, Actin.prop_mean, ymin =Actin.prop_mean-Actin.prop_se,
                                                    ymax = Actin.prop_mean+Actin.prop_se))
