@@ -1,7 +1,16 @@
-#RainX Analyses
-
-#Biolog Analyses are found in RainX_BIOLOG_Code_final.R file
-
+##Code for all annalyses other than community level physiological profiles (see RainX_BIOLOG_Code_final for those analyses)
+##Note that figures were generated in R, but tweaked and finished in Illustrator
+#Associated files for bacterial analyses: in R_intput_files/Bacteria
+#"16s_map_rainx.txt" - treatments and metadata (see READ.me)
+#"16S_RainX_80c_simple.txt" - taxonomic classifications of OTUs based off of SILVA v123
+#"16S_RainX_OTU_table.txt" - OTU matrix constructed in USEARCH pipline
+#"bact.rainx_tree.nwk" - phylogenetic tree of OTUS constructed using PASTA
+#Associated files for fungal analyses: in R_intput_files/Fungi
+#"ITS_map_rainx.txt" - treatments and metadata (see READ.me)
+#"ITS_RainX_80c_simple.txt" - taxonomic classifications of OTUs based off of SILVA v123
+#"ITS_RainX_OTU_table.txt" - OTU matrix constructed in USEARCH pipline
+#Code assembled by: LUkas Bell-Dereske belldere@msu.edu
+#Associated with publication Evans et al. 2019. "Dispersal alters soil microbial community response to drought" in Env Microbiology
 
 library("phyloseq")
 library("ggplot2")
@@ -23,6 +32,7 @@ options(contrasts=c("contr.sum", "contr.poly"))
 
 #####Begin Bacterial Pre-analyses filtering######
 
+#Load associated files and covert to phyloseq obj
 setwd("D:/RainX/github/PAPER_Evans_et_al_RainX-master/R_input_files/Bacteria")
 Rainx_16S<-read.table("16S_RainX_OTU_table.txt", header=T,row.names = 1)
 bact.OTU = otu_table(Rainx_16S, taxa_are_rows = TRUE)
@@ -62,7 +72,7 @@ sum(otu_table(bact.data))
 
 
 
-#Filter taxe with lees than 3 reads in RainX
+#Filter taxa with lees than 3 reads in RainX
 bact.rainx<-subset_samples(bact.data, ProjectName=="RainX")
 
 bact.rainx3<-prune_taxa(taxa_sums(bact.rainx) > 2, bact.rainx)
@@ -78,7 +88,7 @@ sum(otu_table(bact.rainx3))
 
 
 
-## Look at overlap with soil and rain
+
 #soil: no blanks removed but more than 3 reads across the entire exp
 bact.soil<-subset_samples(bact.rainx3, SampleType=="Soil")
 bact.soil<-prune_taxa(taxa_sums(bact.soil)>0,bact.soil)
@@ -161,6 +171,7 @@ bact.rain.tree=phyloseq(otu_table(bact.rain), tax_table(bact.rain), sample_data(
 
 #####Begin Fungal Pre-analyses filtering######
 
+#Load associated files and covert to phyloseq obj
 setwd("D:/RainX/github/PAPER_Evans_et_al_RainX-master/R_input_files/Fungi")
 fung.tax=as.matrix(read.table("ITS_RainX_80c_simple.txt",header=T))
 fung.otu=read.table("ITS_RainX_OTU_table.txt",header=T,row.names = 1)
