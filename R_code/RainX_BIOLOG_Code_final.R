@@ -9,7 +9,6 @@
 library(reshape2)
 library(vegan)
 library(plyr)
-library(ggplot2)
 
 #Choose directory - user-defined
 #setwd("~/Dropbox/_HOME TRANSFER/Active projects/RainX/Data/BIOLOG")
